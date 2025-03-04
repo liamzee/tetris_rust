@@ -136,14 +136,13 @@ impl GameState {
 
     /// Does not return true on out of bounds. Use GameState::out_of_bounds instead.
     fn has_overlap(&self, direction: &Direction, cursor: &Cursor) -> bool {
-        for (x, y) in self.block_type.realize(&direction, &cursor) {
-            if x < 0 || y < 0 || x >= SCREENSIZE[0] || y >= SCREENSIZE[1] {
-                continue;
-            } else if self.blocks_on_board[y as usize][x as usize] {
-                return true;
-            }
-        }
-        false
+        self.block_type
+            .realize(&direction, &cursor)
+            .into_iter()
+            .any(|(x, y)| {
+                ![x < 0, y < 0, x >= SCREENSIZE[0], y >= SCREENSIZE[1]].contains(&true)
+                    && self.blocks_on_board[y as usize][x as usize]
+            })
     }
 
     /// Helper for clearing a line on the board.
@@ -173,43 +172,42 @@ impl GameState {
     /// Main updater for game board.
     fn move_blocks(&mut self, direction: &Direction) -> () {
         if *direction == Direction::Up {
-            self.rotate();
-            return;
+            return self.rotate();
         };
-        let modify = match *direction {
-            Direction::Up => panic_gracefully(),
-            Direction::Left => |cursor: &Cursor| Cursor {
-                x: cursor.x - 1,
-                y: cursor.y,
-            },
-            Direction::Right => |cursor: &Cursor| Cursor {
-                x: cursor.x + 1,
-                y: cursor.y,
-            },
-            Direction::Down => |cursor: &Cursor| Cursor {
-                x: cursor.x,
-                y: cursor.y - 1,
-            },
+        let new_cursor = {
+            let Cursor { x, y } = self.cursor;
+            match *direction {
+                Direction::Up => panic_gracefully(),
+                Direction::Left => Cursor {
+                    x: x - 1,
+                    ..self.cursor
+                },
+                Direction::Right => Cursor {
+                    x: x + 1,
+                    ..self.cursor
+                },
+                Direction::Down => Cursor {
+                    y: y - 1,
+                    ..self.cursor
+                },
+            }
         };
-        let new_cursor = modify(&(self.cursor));
 
         if !self.out_of_bounds(&(self.block_orientation), &new_cursor)
             && !self.has_overlap(&(self.block_orientation), &new_cursor)
         {
             self.cursor = new_cursor;
         } else if *direction == Direction::Down {
-            self.adhere_blocks();
+            self.adhere_blocks(); // this is passing out of bounds cases to adhere_blocks() for
+            // handling.
         };
     }
 
     /// Checks whether the cursor creates an out of bounds element.
     fn out_of_bounds(&self, direction: &Direction, cursor: &Cursor) -> bool {
-        for (x, y) in self.block_type.realize(&direction, &cursor) {
-            if [x < 0, x >= SCREENSIZE[0], y < 0, y >= SCREENSIZE[1]].contains(&true) {
-                return true;
-            };
-        }
-        false
+        (self.block_type.realize(&direction, &cursor))
+            .into_iter()
+            .any(|(x, y)| [x < 0, x >= SCREENSIZE[0], y < 0, y >= SCREENSIZE[1]].contains(&true))
     }
 
     /// Game overs if any element exceeds Y bound (represents overfilled
@@ -257,7 +255,7 @@ impl GameState {
 
     /// Randomly selects a new block.
     fn new_block(&mut self) -> () {
-        let items = [
+        self.block_type = [
             Block::Block2x2,
             Block::LeftL,
             Block::RightL,
@@ -265,11 +263,10 @@ impl GameState {
             Block::LightningDown,
             Block::Line,
             Block::Prod,
-        ];
-        self.block_type = items
-            .into_iter()
-            .nth(rand::rng().random_range(0..7))
-            .unwrap();
+        ]
+        .into_iter()
+        .nth(rand::rng().random_range(0..7))
+        .unwrap();
     }
 
     /// Game over.
@@ -309,48 +306,45 @@ fn game_loop(game: &mut GameState) -> () {
         let update_elapsed = update_clock.elapsed();
 
         if update_elapsed > Duration::from_millis(UPDATEDELAY) {
-
-        update_clock += Duration::from_millis(UPDATEDELAY);
-        game.move_blocks(&Direction::Down);
+            update_clock += Duration::from_millis(UPDATEDELAY);
+            game.move_blocks(&Direction::Down);
         }
 
         let screen_elapsed = display_clock.elapsed();
 
         if screen_elapsed < Duration::from_millis(FPSDELAY) {
-        thread::sleep(Duration::from_millis(FPSDELAY) - screen_elapsed);
-        } else {display_clock += Duration::from_millis(FPSDELAY)};
+            thread::sleep(Duration::from_millis(FPSDELAY) - screen_elapsed);
+        } else {
+            display_clock += Duration::from_millis(FPSDELAY)
+        };
     }
 }
 
 /// Key listener code.
 fn key_listener(game: &mut GameState) -> () {
-    loop {
-        if let Ok(true) = event::poll(Duration::from_secs(0)) {
-            let Ok(event::Event::Key(pressed)) = event::read() else {
-                break;
-            };
-            match pressed.code {
-                event::KeyCode::Up => {
-                    game.move_blocks(&Direction::Up);
-                }
-                event::KeyCode::Left => {
-                    game.move_blocks(&Direction::Left);
-                }
-                event::KeyCode::Right => {
-                    game.move_blocks(&Direction::Right);
-                }
-                event::KeyCode::Down => {
-                    game.move_blocks(&Direction::Down);
-                }
-                event::KeyCode::Char('c') => {
-                    if pressed.modifiers.contains(event::KeyModifiers::CONTROL) {
-                        panic_gracefully()
-                    };
-                }
-                _ => break,
-            };
-        } else {
+    while let Ok(true) = event::poll(Duration::from_secs(0)) {
+        let Ok(event::Event::Key(pressed)) = event::read() else {
             break;
-        }
+        };
+        match pressed.code {
+            event::KeyCode::Up => {
+                game.move_blocks(&Direction::Up);
+            }
+            event::KeyCode::Left => {
+                game.move_blocks(&Direction::Left);
+            }
+            event::KeyCode::Right => {
+                game.move_blocks(&Direction::Right);
+            }
+            event::KeyCode::Down => {
+                game.move_blocks(&Direction::Down);
+            }
+            event::KeyCode::Char('c') => {
+                if pressed.modifiers.contains(event::KeyModifiers::CONTROL) {
+                    panic_gracefully()
+                };
+            }
+            _ => break,
+        };
     }
 }
