@@ -43,50 +43,42 @@ enum Block {
 impl Block {
     ///Problematic due to manual entry of rotated block types.
     ///Better to split into internal functions and have it handled that way.
-    fn realize(&self, direction: &Direction, cursor: &Cursor) -> [(isize, isize); 4] {
-        let (x, y) = (cursor.x, cursor.y);
-        match self {
-            Block::Block2x2 => [(x, y), (x, y + 1), (x + 1, y), (x + 1, y + 1)],
-            Block::LeftL => match direction {
-                Direction::Up => [(x, y + 1), (x, y), (x, y - 1), (x + 1, y - 1)],
-                Direction::Left => [(x - 1, y - 1), (x, y - 1), (x + 1, y), (x + 1, y - 1)],
-                Direction::Right => [(x, y), (x, y - 1), (x + 1, y), (x + 2, y)],
-                Direction::Down => [(x, y), (x + 1, y), (x + 1, y - 1), (x + 1, y - 2)],
-            },
-            Block::RightL => match direction {
-                Direction::Up => [(x + 1, y + 1), (x + 1, y), (x, y - 1), (x + 1, y - 1)],
-                Direction::Left => [(x - 1, y), (x, y), (x + 1, y), (x + 1, y - 1)],
-                Direction::Right => [(x, y), (x, y - 1), (x + 1, y - 1), (x + 2, y - 1)],
-                Direction::Down => [(x, y), (x + 1, y), (x, y - 1), (x, y - 2)],
-            },
-            Block::LightningUp => {
-                if [Direction::Up, Direction::Down].contains(direction) {
-                    [(x + 1, y + 1), (x, y), (x + 1, y), (x, y - 1)]
-                } else {
-                    [(x - 1, y), (x, y), (x, y - 1), (x + 1, y - 1)]
-                }
-            }
-            Block::LightningDown => {
-                if [Direction::Up, Direction::Down].contains(direction) {
-                    [(x, y + 1), (x, y), (x + 1, y), (x + 1, y - 1)]
-                } else {
-                    [(x - 1, y - 1), (x, y), (x + 1, y), (x, y - 1)]
-                }
-            }
-            Block::Line => {
-                if [Direction::Up, Direction::Down].contains(direction) {
-                    [(x, y + 1), (x, y), (x, y - 1), (x, y - 2)]
-                } else {
-                    [(x - 1, y), (x, y), (x + 1, y), (x + 2, y)]
-                }
-            }
-            Block::Prod => match direction {
-                Direction::Up => [(x, y + 1), (x - 1, y), (x, y), (x + 1, y)],
-                Direction::Left => [(x, y + 1), (x - 1, y), (x, y), (x, y - 1)],
-                Direction::Right => [(x, y + 1), (x, y), (x + 1, y), (x, y - 1)],
-                Direction::Down => [(x - 1, y), (x, y), (x + 1, y), (x, y - 1)],
-            },
+    fn realize(&self, direction: &Direction, cursor: &Cursor) -> Vec<(isize, isize)> {
+        let mut template: Vec<(isize, isize)> = match self {
+            Block::Block2x2 => [(0, 1), (1, 1), (0, 0), (1, 0)],
+            Block::LeftL => [(0, 1), (0, 0), (0, -1), (1, -1)],
+            Block::RightL => [(1, 1), (1, 0), (0, -1), (1, -1)],
+            Block::LightningUp => [(1, 1), (0, 0), (1, 0), (0, -1)],
+            Block::LightningDown => [(0, 1), (0, 0), (1, 0), (1, -1)],
+            Block::Line => [(0, 1), (0, 0), (0, -1), (0, -2)],
+            Block::Prod => [(0, 1), (-1, 0), (0, 0), (1, 0)],
         }
+        .to_vec();
+
+        let rotations = match direction {
+            Direction::Up => 0,
+            Direction::Right => 1,
+            Direction::Down => 2,
+            Direction::Left => 3,
+        };
+
+        fn rotate(arr: &mut Vec<(isize, isize)>) -> () {
+            for count in 0..arr.len() {
+                arr[count] = (-arr[count].1, arr[count].0)
+            }
+        }
+
+        for _ in 0..rotations {
+            rotate(&mut template);
+        }
+
+        let (x, y) = (cursor.x, cursor.y);
+
+        for count in 0..template.len() {
+            template[count] = (x + template[count].0, y + template[count].1);
+        }
+
+        template
     }
 }
 
