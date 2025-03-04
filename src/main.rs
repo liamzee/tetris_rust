@@ -4,21 +4,10 @@ use std::io;
 use std::thread;
 use std::time::{Duration, Instant};
 
-/*
-fn main() -> () {
-    // start_screen();
-    game();
-    // end_screen();
-}
-*/
 const SCREENSIZE: [isize; 2] = [20, 30];
 const FPS: u64 = 30;
 const FPSDELAY: u64 = 1000 / FPS;
 const UPDATEDELAY: u64 = 1000;
-
-fn start_screen() -> () {
-    todo!()
-}
 
 struct GameState {
     blocks_on_board: Vec<Vec<bool>>,
@@ -141,7 +130,7 @@ impl GameState {
 
     /// Generates a string, then prints it.
     fn display(&self) -> () {
-        crossterm::execute!(io::stdout(), terminal::Clear(terminal::ClearType::All));
+        let _ = crossterm::execute!(io::stdout(), terminal::Clear(terminal::ClearType::All));
         println!("{}", self.create_string());
     }
 
@@ -215,7 +204,7 @@ impl GameState {
 
     /// Checks whether the cursor creates an out of bounds element.
     fn out_of_bounds(&self, direction: &Direction, cursor: &Cursor) -> bool {
-        for (x, y) in (self.block_type.realize(&direction, &cursor)) {
+        for (x, y) in self.block_type.realize(&direction, &cursor) {
             if [x < 0, x >= SCREENSIZE[0], y < 0, y >= SCREENSIZE[1]].contains(&true) {
                 return true;
             };
@@ -235,7 +224,7 @@ impl GameState {
                 self.game_over()
             };
             if [y < 0, x < 0, x >= SCREENSIZE[1]].iter().any(|a| *a) {
-                panic_gracefully;
+                panic_gracefully();
             };
             self.blocks_on_board[y as usize][x as usize] = true;
         }
@@ -279,13 +268,13 @@ impl GameState {
         ];
         self.block_type = items
             .into_iter()
-            .nth(rand::thread_rng().gen_range(0..7))
+            .nth(rand::rng().random_range(0..7))
             .unwrap();
     }
 
     /// Game over.
     fn game_over(&self) -> () {
-        crossterm::terminal::disable_raw_mode();
+        let _ = crossterm::terminal::disable_raw_mode();
         self.display();
         println!("Game over!");
         std::process::exit(0);
@@ -294,7 +283,7 @@ impl GameState {
 
 /// Helper function for safe exits due to raw mode being on.
 fn panic_gracefully() -> ! {
-    crossterm::terminal::disable_raw_mode();
+    let _ = crossterm::terminal::disable_raw_mode();
     println!("internal panic triggered");
     std::process::exit(1);
 }
@@ -302,9 +291,9 @@ fn panic_gracefully() -> ! {
 /// Main.
 fn main() -> () {
     let mut game = GameState::new();
-    terminal::enable_raw_mode();
+    let _ = terminal::enable_raw_mode();
     game_loop(&mut game);
-    terminal::disable_raw_mode();
+    let _ = terminal::disable_raw_mode();
 }
 
 /// Main loop.
