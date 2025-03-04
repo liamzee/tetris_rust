@@ -41,8 +41,8 @@ enum Block {
 }
 
 impl Block {
-    ///Problematic due to manual entry of rotated block types.
-    ///Better to split into internal functions and have it handled that way.
+    /// Currently, due to use of a function to rotate,
+    /// does not match canonical Tetris gameplay.
     fn realize(&self, direction: &Direction, cursor: &Cursor) -> Vec<(isize, isize)> {
         let mut template: Vec<(isize, isize)> = match self {
             Block::Block2x2 => [(0, 1), (1, 1), (0, 0), (1, 0)],
