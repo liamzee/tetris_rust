@@ -1,0 +1,134 @@
+use array2d::Array2D;
+use crossterm::event;
+use crossterm::terminal;
+use std::fmt;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
+
+fn main() -> () {
+    // start_screen();
+    game();
+    // end_screen();
+}
+
+const SCREENSIZE: [usize; 2] = [30, 30];
+const FPS: u64 = 120;
+const REFRESHDELAY: u64 = 100 / FPS;
+const GAMEDELAY: u64 = 1000;
+
+fn start_screen() -> () {
+    todo!()
+}
+
+pub enum Direction {
+    Up,
+    Left,
+    Right,
+    Down,
+}
+
+fn game() -> () {
+
+    let (kill_thread, thread_killed) = mpsc::channel::<()>();
+    let (key_press, key_receiver) = mpsc::channel();
+
+    key_listener(key_press, thread_killed);
+    game_loop(key_receiver);
+
+    kill_thread.send(());
+
+}
+
+fn key_listener(
+    key_press: mpsc::Sender<Direction>,
+    thread_killed: mpsc::Receiver<()>,
+) -> thread::JoinHandle<()> {
+
+    crossterm::terminal::enable_raw_mode();
+    
+    let ret_value = thread::spawn(move || {
+        loop {
+            match event::poll(Duration::from_millis(0)) {
+                Ok(_) => match event::read() {
+                    Ok(event::Event::Key(pressed)) => {
+                        match pressed.code {
+                            event::KeyCode::Up => {
+                                key_press.send(Direction::Up).unwrap();
+                            },
+                            event::KeyCode::Left => {
+                                key_press.send(Direction::Left).unwrap();
+                            },
+                            event::KeyCode::Right => {
+                                key_press.send(Direction::Right).unwrap();
+                            },
+                            event::KeyCode::Down => {
+                                key_press.send(Direction::Down).unwrap();
+                            },
+                            event::KeyCode::Char('c') => {
+                                if pressed
+                                    .modifiers
+                                    .contains(event::KeyModifiers::CONTROL)
+                                {panic_gracefully()};
+                            },
+                            _ => (),
+                        };
+                    }
+                    _ => (),
+                },
+                _ => (),
+            };
+
+            match thread_killed.try_recv() {
+                Err(mpsc::TryRecvError::Empty) => continue,
+                _ => break,
+            };
+        }
+    });
+
+//    crossterm::terminal::disable_raw_mode();
+    
+    ret_value
+}
+
+fn panic_gracefully() {
+    crossterm::terminal::disable_raw_mode();
+    println!("internal panic triggered");
+    std::process::exit(0);
+}
+
+fn game_loop(key_receiver: mpsc::Receiver<Direction>) -> () {
+    let mut map = Array2D::filled_by_row_major(|| false, SCREENSIZE[0], SCREENSIZE[1]);
+    let mut element = Array2D::filled_by_row_major(|| false, 2, 4);
+
+    loop {
+        let mut key = None;
+        loop {
+            match key_receiver.try_recv() {
+                Ok(press) => {
+                    key = Some(press);
+                }
+                _ => break,
+            };
+        }
+
+        let press = match key {
+            None => "No key was pressed.",
+            Some(term) => match term {
+                Direction::Up => "Up",
+                Direction::Left => "Left",
+                Direction::Right => "Right",
+                Direction::Down => "Down",
+            },
+        };
+
+        let mut debug = press.clone();
+
+        println!("{}\r", debug);
+        thread::sleep(Duration::from_millis(GAMEDELAY));
+    }
+}
+
+fn end_screen() -> () {
+    todo!()
+}
